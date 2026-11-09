@@ -1,0 +1,44 @@
+# ---- Dart / pub ----
+# Metadatos que `dart pub get` regenera. Contienen rutas absolutas de la
+# maquina que los genero (C:/Users/...), asi que nunca deben versionarse.
+.dart_tool/
+.packages
+build/
+doc/api/
+
+# NOTA: pubspec.lock SI se versiona. Esto es una aplicacion, no una
+# biblioteca: fijar las versiones exactas garantiza que el equipo y el
+# servidor instalen las mismas dependencias.
+
+# ---- Base de datos ----
+# La BD es un artefacto de ejecucion: `Db.abrir` crea el esquema y siembra
+# los datos iniciales cuando esta vacia, asi que al clonar se regenera sola.
+# Versionarla publicaria las citas y los hashes de contrasena de las pruebas.
+datos/*.db
+datos/*.db-shm
+datos/*.db-wal
+datos/*.sqlite
+datos/*.sqlite3
+*.db-journal
+
+# ---- Entorno y secretos ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- Registros y temporales ----
+*.log
+logs/
+*.tmp
+
+# ---- Editores y sistema operativo ----
+.idea/
+*.iml
+.vscode/
+*.swp
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store

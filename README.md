@@ -260,3 +260,40 @@ rutas viven en archivos separados sin pisarse.
 
 Cada petición queda trazada con método, ruta, código y duración, igual que en la
 app, de modo que una misma acción se puede seguir en los dos lados.
+
+## 7. Qué se versiona y qué no
+
+`.gitignore` deja fuera todo lo que una máquina nueva puede regenerar, y una
+cosa que además no debe salir del equipo:
+
+| Ruta | Por qué se ignora |
+|---|---|
+| `.dart_tool/` | Lo regenera `dart pub get`. Guarda rutas absolutas de la máquina que lo creó (`C:/Users/...`), así que en otro equipo apunta a carpetas que no existen. |
+| `datos/*.db`, `-shm`, `-wal` | Es un artefacto de ejecución. Versionarla publicaría las citas de prueba y los hashes PBKDF2 de las contraseñas. |
+| `.env`, `*.key`, `*.pem` | Credenciales. Hoy no hay ninguna, pero si se añade un host o una clave, que no se suba por descuido. |
+| `*.log` | Salida del servidor. |
+
+Dos que sí se versionan a propósito:
+
+- **`pubspec.lock`** — esto es una aplicación, no una biblioteca. Fijar las
+  versiones exactas hace que el equipo y el servidor instalen lo mismo.
+- **`sqlite3.dll`** — el paquete `sqlite3` no trae el motor; lo busca en el
+  sistema. Dejarlo en el repositorio hace que en Windows baste `dart pub get`
+  y `dart run bin/server.dart` tras clonar, sin instalar nada. En Linux o
+  macOS este archivo se ignora y el motor lo da el sistema
+  (`apt install libsqlite3-0`, o ya viene incluido en macOS).
+
+Al clonar, la base de datos no está, y eso es lo normal: `bin/server.dart` crea
+la carpeta `datos/` si falta y `Db.abrir` aplica el esquema y siembra los 6
+doctores, 6 servicios y 2 usuarios cuando las tablas están vacías. Comprobado
+sobre una carpeta vacía:
+
+```
+Base de datos : .../clon-limpio/datos/prueba.db
+Sembrando datos iniciales...
+Semilla lista: 6 doctores, 6 servicios, 2 usuarios.
+```
+
+> Las dos cuentas sembradas (§1) son de demostración y sus contraseñas están
+> aquí escritas a propósito. No sirven en ningún otro sitio; si esta API se
+> publica en Internet, cámbialas en `lib/db.dart` antes.

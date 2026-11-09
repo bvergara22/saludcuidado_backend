@@ -23,6 +23,11 @@ Future<void> main(List<String> args) async {
   stdout.writeln('  ----------------');
   stdout.writeln('  Base de datos : $rutaDb');
 
+  // El directorio puede no existir en un clon nuevo (la BD está ignorada en
+  // git), y sqlite3.open no lo crea: falla con "unable to open database file".
+  final carpeta = File(rutaDb).parent;
+  if (!carpeta.existsSync()) carpeta.createSync(recursive: true);
+
   final db = Db.abrir(rutaDb);
   stdout.writeln('  Motor         : SQLite ${sqlite3.version.libVersion}');
 
