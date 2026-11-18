@@ -8,6 +8,7 @@ import 'package:saludcuidado_backend/db.dart';
 import 'package:saludcuidado_backend/http_util.dart';
 import 'package:saludcuidado_backend/rutas/admin.dart';
 import 'package:saludcuidado_backend/rutas/api.dart';
+import 'package:saludcuidado_backend/rutas/chat.dart';
 
 /// Punto de entrada de la API REST de SaludCuidado.
 ///
@@ -35,6 +36,7 @@ Future<void> main(List<String> args) async {
   // público: Cascade pasa al siguiente cuando el anterior responde 404/405.
   final rutas = Cascade()
       .add(construirAdmin(db).call)
+      .add(construirChat(db).call)
       .add(construirApi(db).call)
       .handler;
 

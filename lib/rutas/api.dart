@@ -220,6 +220,9 @@ Router construirApi(Db db) {
     final doc = db.raw.select('SELECT * FROM doctores WHERE id = ?', [doctorId]);
     if (doc.isEmpty) return noEncontrado('No existe el doctor $doctorId.');
 
+    final enElPasado = momentoPasado(fecha, hora);
+    if (enElPasado != null) return enElPasado;
+
     // Regla portada de CitaService.crearCita(): la hora debe estar disponible.
     if (!Horarios.disponibles(db, doctorId: doctorId, fecha: fecha)
         .contains(hora)) {
@@ -252,8 +255,21 @@ Router construirApi(Db db) {
     return creado({'cita': citaJson(db, creada.first)});
   });
 
-  /// Cambia el estado de una cita (cancelar / completar).
-  /// Trazabilidad: CitaService.cambiarEstadoCita(id, estado).
+  /// Cambia el estado de una cita (cancelar / completar) **o** la
+  /// reprograma a otra fecha y hora.
+  ///
+  /// Trazabilidad: CitaService.cambiarEstadoCita(id, estado) para lo
+  /// primero. Lo segundo no existe en la plataforma web, donde reprogramar
+  /// obliga a cancelar y volver a reservar; aquí se hace en una sola
+  /// operación, que además conserva el historial de la cita (mismo id).
+  ///
+  /// Cuerpo aceptado:
+  ///   {"estado": "CANCELADA"}                  -> cambia el estado
+  ///   {"fecha": "2026-11-20", "hora": "09:30"} -> reprograma
+  ///
+  /// La reprogramación aplica la MISMA regla que crear: la nueva hora debe
+  /// estar libre para ese doctor, y el índice único parcial protege de dos
+  /// peticiones simultáneas.
   r.patch('/api/citas/<id>', (Request req, String id) async {
     final uid = usuarioDe(req);
     if (uid == null) return noAutorizado();
@@ -261,22 +277,30 @@ Router construirApi(Db db) {
     final cuerpo = await cuerpoJson(req);
     if (cuerpo == null) return peticionInvalida('El cuerpo debe ser JSON.');
 
-    final estado = (cuerpo['estado'] as String?)?.toUpperCase();
-    const validos = {'PROGRAMADA', 'COMPLETADA', 'CANCELADA'};
-    if (estado == null || !validos.contains(estado)) {
-      return peticionInvalida(
-          'estado debe ser uno de: ${validos.join(', ')}.');
-    }
-
     final actual =
         db.raw.select('SELECT * FROM citas WHERE id = ? AND usuario_id = ?',
             [id, uid]);
     if (actual.isEmpty) return noEncontrado('No existe la cita $id.');
 
-    db.raw.execute(
-      'UPDATE citas SET estado = ?, actualizada_en = ? WHERE id = ?',
-      [estado, DateTime.now().toIso8601String(), id],
-    );
+    final nuevaFecha = (cuerpo['fecha'] as String?)?.trim();
+    final nuevaHora = (cuerpo['hora'] as String?)?.trim();
+    final reprograma = nuevaFecha != null || nuevaHora != null;
+
+    if (reprograma) {
+      final fallo = _reprogramar(db, actual.first, nuevaFecha, nuevaHora);
+      if (fallo != null) return fallo;
+    } else {
+      final estado = (cuerpo['estado'] as String?)?.toUpperCase();
+      const validos = {'PROGRAMADA', 'COMPLETADA', 'CANCELADA'};
+      if (estado == null || !validos.contains(estado)) {
+        return peticionInvalida(
+            'estado debe ser uno de: ${validos.join(', ')}.');
+      }
+      db.raw.execute(
+        'UPDATE citas SET estado = ?, actualizada_en = ? WHERE id = ?',
+        [estado, DateTime.now().toIso8601String(), id],
+      );
+    }
 
     final f = db.raw.select('''
       SELECT c.*, s.nombre AS servicio_nombre
@@ -340,3 +364,84 @@ Router construirApi(Db db) {
   return r;
 }
 
+
+/// Reprograma una cita a otra fecha u hora.
+///
+/// CONTRATO: _reprogramar
+///   Requiere : la fila de la cita y, al menos, una fecha o una hora nuevas
+///   Garantiza: si todo valida, la cita queda movida y vuelve a estado
+///              PROGRAMADA (reprogramar una cancelada la revive)
+///   Falla si : formato inválido -> 400
+///              la cita ya se completó -> 409
+///              el nuevo horario está ocupado -> 409
+///
+/// Devuelve null cuando todo fue bien, o la respuesta de error.
+Response? _reprogramar(
+  Db db,
+  Row cita,
+  String? nuevaFecha,
+  String? nuevaHora,
+) {
+  final fecha = nuevaFecha ?? cita['fecha'] as String;
+  final hora = nuevaHora ?? cita['hora'] as String;
+
+  if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(fecha)) {
+    return peticionInvalida('La fecha debe tener formato YYYY-MM-DD.');
+  }
+  if (!RegExp(r'^\d{2}:\d{2}$').hasMatch(hora)) {
+    return peticionInvalida('La hora debe tener formato HH:MM.');
+  }
+
+  // Una cita ya atendida no se mueve: lo que pasó, pasó.
+  if (cita['estado'] == 'COMPLETADA') {
+    return conflicto('Una cita completada no se puede reprogramar.');
+  }
+
+  // Mover una cita al mismo sitio no es un error, pero tampoco hay nada
+  // que validar ni que escribir.
+  if (fecha == cita['fecha'] && hora == cita['hora']) return null;
+
+  final enElPasado = momentoPasado(fecha, hora);
+  if (enElPasado != null) return enElPasado;
+
+  final doctorId = cita['doctor_id'] as String;
+
+  // Misma regla que al crear: la hora destino debe estar libre. El propio
+  // hueco actual de esta cita no cuenta como ocupado por ella misma, pero
+  // ese caso ya salió arriba por ser el mismo sitio.
+  if (!Horarios.disponibles(db, doctorId: doctorId, fecha: fecha)
+      .contains(hora)) {
+    return conflicto('El horario $hora del $fecha ya no está disponible.');
+  }
+
+  try {
+    db.raw.execute(
+      '''UPDATE citas
+         SET fecha = ?, hora = ?, estado = 'PROGRAMADA', actualizada_en = ?
+         WHERE id = ?''',
+      [fecha, hora, DateTime.now().toIso8601String(), cita['id']],
+    );
+  } on SqliteException catch (e) {
+    if (e.resultCode == 19) {
+      return conflicto('Ese horario acaba de ser reservado por otra persona.');
+    }
+    rethrow;
+  }
+  return null;
+}
+
+/// Comprueba que una fecha y hora no estén ya pasadas.
+///
+/// CONTRATO: momentoPasado
+///   Garantiza: devuelve null si el momento está en el futuro
+///   Falla si : ya pasó -> respuesta 400 explicando el motivo
+///
+/// Aplica tanto al crear como al reprogramar. `Horarios.disponibles` ya
+/// recorta las horas de hoy que quedaron atrás, pero no sabía nada de los
+/// días anteriores: sin esto se podía agendar para la semana pasada.
+Response? momentoPasado(String fecha, String hora) {
+  final momento = DateTime.tryParse('$fecha $hora:00');
+  if (momento == null) return null;
+  if (momento.isAfter(DateTime.now())) return null;
+  return peticionInvalida('No se puede agendar para un momento que ya pasó.');
+}
