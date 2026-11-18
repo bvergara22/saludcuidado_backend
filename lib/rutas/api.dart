@@ -107,6 +107,77 @@ Router construirApi(Db db) {
     return ok({'usuario': usuarioJson(db, u)});
   });
 
+  /// CONTRATO: PATCH /api/auth/yo
+  ///   Requiere : sesión iniciada; para cambiar la contraseña hay que
+  ///              enviar también la actual
+  ///   Garantiza: actualiza nombre, apellido y/o contraseña del usuario de
+  ///              la sesión, y devuelve el usuario ya actualizado
+  ///   Falla si : sin sesión -> 401
+  ///              la contraseña actual no coincide -> 401
+  ///              la nueva tiene menos de 6 caracteres -> 400
+  ///              el nombre llega vacío -> 400
+  ///
+  /// El correo NO se puede cambiar aquí: es la identidad de la cuenta y
+  /// cambiarlo invalidaría las sesiones y las citas asociadas. En la
+  /// plataforma web tampoco se permitía.
+  ///
+  /// Al cambiar la contraseña se cierran las demás sesiones: si alguien se
+  /// la estaba suplantando, el cambio debe echarlo fuera.
+  r.patch('/api/auth/yo', (Request req) async {
+    final uid = usuarioDe(req);
+    if (uid == null) return noAutorizado();
+
+    final u = db.usuarioPorId(uid);
+    if (u == null) return noAutorizado();
+
+    final cuerpo = await cuerpoJson(req);
+    if (cuerpo == null) return peticionInvalida('El cuerpo debe ser JSON.');
+
+    final nombre = (cuerpo['nombre'] as String?)?.trim();
+    final apellido = (cuerpo['apellido'] as String?)?.trim();
+    final actual = cuerpo['passwordActual'] as String?;
+    final nueva = cuerpo['passwordNueva'] as String?;
+
+    if (nombre != null && nombre.isEmpty) {
+      return peticionInvalida('El nombre no puede quedar vacío.');
+    }
+
+    if (nueva != null && nueva.isNotEmpty) {
+      if (actual == null || actual.isEmpty) {
+        return peticionInvalida(
+          'Para cambiar la contraseña debes escribir la actual.',
+        );
+      }
+      if (!Seguridad.verificar(
+          actual, u['salt'] as String, u['password_hash'] as String)) {
+        return noAutorizado('La contraseña actual no es correcta.');
+      }
+      if (nueva.length < 6) {
+        return peticionInvalida(
+          'La nueva contraseña debe tener al menos 6 caracteres.',
+        );
+      }
+
+      final sal = Seguridad.generarSal();
+      db.raw.execute(
+        'UPDATE usuarios SET password_hash = ?, salt = ? WHERE id = ?',
+        [Seguridad.derivar(nueva, sal), sal, uid],
+      );
+      db.cerrarOtrasSesiones(uid, conservar: tokenDe(req));
+    }
+
+    if (nombre != null) {
+      db.raw.execute('UPDATE usuarios SET nombre = ? WHERE id = ?',
+          [nombre, uid]);
+    }
+    if (apellido != null) {
+      db.raw.execute('UPDATE usuarios SET apellido = ? WHERE id = ?',
+          [apellido, uid]);
+    }
+
+    return ok({'usuario': usuarioJson(db, db.usuarioPorId(uid)!)});
+  });
+
   // -------------------------------------------------------------- doctores
 
   r.get('/api/doctores', (Request req) {

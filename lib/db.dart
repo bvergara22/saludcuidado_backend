@@ -752,4 +752,20 @@ class Db {
 
   void cerrarSesion(String token) =>
       _db.execute('DELETE FROM sesiones WHERE token = ?', [token]);
+
+  /// Cierra todas las sesiones de un usuario salvo la indicada.
+  ///
+  /// Se usa al cambiar la contrasena: si alguien se estaba haciendo pasar
+  /// por el usuario, el cambio tiene que echarlo fuera. La sesion que pide
+  /// el cambio se conserva para no expulsar tambien a quien la cambia.
+  void cerrarOtrasSesiones(int usuarioId, {String? conservar}) {
+    if (conservar == null) {
+      _db.execute('DELETE FROM sesiones WHERE usuario_id = ?', [usuarioId]);
+      return;
+    }
+    _db.execute(
+      'DELETE FROM sesiones WHERE usuario_id = ? AND token != ?',
+      [usuarioId, conservar],
+    );
+  }
 }

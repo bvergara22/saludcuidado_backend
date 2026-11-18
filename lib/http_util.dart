@@ -109,6 +109,12 @@ Middleware capturarErrores() => (innerHandler) {
 /// Clave con la que se guarda el id de usuario en el contexto de la peticion.
 const claveUsuario = 'usuarioId';
 
+/// Clave con la que se guarda el token de la sesion en el contexto.
+///
+/// Hace falta para poder cerrar las DEMAS sesiones del usuario sin cerrar
+/// la que esta haciendo la peticion.
+const claveToken = 'sesionToken';
+
 /// Extrae el token "Authorization: Bearer <token>" y resuelve el usuario.
 /// No rechaza la peticion: solo anota el usuario si el token es valido.
 Middleware autenticacion(Db db) => (innerHandler) {
@@ -118,7 +124,9 @@ Middleware autenticacion(Db db) => (innerHandler) {
           final token = cabecera.substring(7).trim();
           final uid = db.usuarioDeSesion(token);
           if (uid != null) {
-            return innerHandler(req.change(context: {claveUsuario: uid}));
+            return innerHandler(req.change(
+              context: {claveUsuario: uid, claveToken: token},
+            ));
           }
         }
         return innerHandler(req);
@@ -127,3 +135,6 @@ Middleware autenticacion(Db db) => (innerHandler) {
 
 /// Devuelve el usuario autenticado de la peticion, o null.
 int? usuarioDe(Request req) => req.context[claveUsuario] as int?;
+
+/// Devuelve el token de la sesion que hace la peticion, o null.
+String? tokenDe(Request req) => req.context[claveToken] as String?;
