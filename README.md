@@ -27,7 +27,7 @@ curl http://localhost:8080/api/salud
 ```
 
 La primera ejecución crea el esquema y **siembra** los datos de los mocks de
-Penpot: 6 doctores con su agenda, 6 servicios, 2 usuarios y 5 citas de ejemplo.
+Penpot: 9 doctores con su agenda, 9 servicios, 2 usuarios y 5 citas de ejemplo.
 Las ejecuciones siguientes reutilizan lo que ya hay en el archivo.
 
 Para ver el contenido de la base de datos sin el servidor:
@@ -115,15 +115,17 @@ Todas las respuestas son JSON. Las rutas marcadas con 🔒 exigen la cabecera
 | `POST` | `/api/auth/login` | valida credenciales y devuelve `{token, usuario}` |
 | `POST` | `/api/auth/logout` | 🔒 invalida la sesión |
 | `GET` | `/api/auth/yo` | 🔒 usuario de la sesión actual |
+| `PATCH` | `/api/auth/yo` | 🔒 edita el nombre y/o cambia la contraseña (exige la actual; cierra las demás sesiones) |
 | `GET` | `/api/doctores?especialidad=&q=` | catálogo filtrable por especialidad y texto |
 | `GET` | `/api/doctores/<id>` | un doctor con su agenda |
 | `GET` | `/api/doctores/<id>/horarios?fecha=YYYY-MM-DD` | horas libres de ese día |
 | `GET` | `/api/servicios` | catálogo de servicios |
 | `GET` | `/api/citas` | 🔒 citas del usuario autenticado |
 | `POST` | `/api/citas` | 🔒 reserva una cita |
-| `PATCH` | `/api/citas/<id>` | 🔒 cambia el estado (`CANCELADA` / `COMPLETADA`) |
+| `PATCH` | `/api/citas/<id>` | 🔒 cambia el estado (`CANCELADA` / `COMPLETADA`) **o** reprograma con `{fecha, hora}` |
 | `DELETE` | `/api/citas/<id>` | 🔒 elimina la cita |
 | `GET` | `/api/estadisticas` | 🔒 totales por estado |
+| `POST` | `/api/chat` | 🔒 asistente por reglas: resuelve la pregunta con consultas SQL sobre los datos del propio usuario |
 
 ### API de administración
 
@@ -284,15 +286,26 @@ Dos que sí se versionan a propósito:
   (`apt install libsqlite3-0`, o ya viene incluido en macOS).
 
 Al clonar, la base de datos no está, y eso es lo normal: `bin/server.dart` crea
-la carpeta `datos/` si falta y `Db.abrir` aplica el esquema y siembra los 6
-doctores, 6 servicios y 2 usuarios cuando las tablas están vacías. Comprobado
+la carpeta `datos/` si falta y `Db.abrir` aplica el esquema y siembra los 9
+doctores, 9 servicios y 2 usuarios cuando las tablas están vacías. Comprobado
 sobre una carpeta vacía:
 
 ```
 Base de datos : .../clon-limpio/datos/prueba.db
 Sembrando datos iniciales...
-Semilla lista: 6 doctores, 6 servicios, 2 usuarios.
+Semilla lista: 9 doctores, 9 servicios, 2 usuarios.
 ```
+
+El **catálogo** (médicos y servicios) se completa además en cada arranque,
+insertando solo los que falten por id. Así una base de datos creada con una
+versión anterior recibe los nuevos sin perder sus citas ni sus usuarios:
+
+```
+Catálogo completado: +3 doctores, +3 servicios.
+```
+
+Los usuarios y las citas de ejemplo, en cambio, solo se crean la primera vez:
+volver a insertarlos pisaría datos de la demostración.
 
 > Las dos cuentas sembradas (§1) son de demostración y sus contraseñas están
 > aquí escritas a propósito. No sirven en ningún otro sitio; si esta API se
