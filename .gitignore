@@ -42,3 +42,7 @@ Thumbs.db
 ehthumbs.db
 desktop.ini
 .DS_Store
+
+# App Flutter Web compilada: es un artefacto de construccion, se genera
+# con "flutter build web" y se copia aqui. No se versiona.
+publico/
