@@ -1,0 +1,19 @@
+# El LoadBalancer es lo que da la URL publica de AWS: al crearlo, EKS
+# levanta un balanceador y publica su nombre DNS. Esa es la direccion
+# que se entrega.
+apiVersion: v1
+kind: Service
+metadata:
+  name: saludcuidado-service
+  namespace: saludcuidado
+  labels:
+    app: saludcuidado
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: saludcuidado

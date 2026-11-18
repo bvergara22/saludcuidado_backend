@@ -1,0 +1,13 @@
+# La base de datos local no entra en la imagen: cada despliegue siembra
+# la suya. Si entrara, se publicarian los datos de las pruebas.
+datos/
+
+.git/
+.gitignore
+.dart_tool/
+build/
+*.md
+test/
+sqlite3.dll
+Dockerfile
+.dockerignore

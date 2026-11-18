@@ -1,0 +1,21 @@
+# Disco para la base de datos.
+#
+# Sin esto, cada reinicio del pod empezaria con una base vacia y se
+# perderian las cuentas y las citas que se hubieran creado. Con el
+# volumen, el contenedor es desechable pero los datos no.
+#
+# ReadWriteOnce es justo lo que queremos: un solo pod escribiendo, que
+# es la unica forma segura de usar SQLite.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: saludcuidado-datos
+  namespace: saludcuidado
+  labels:
+    app: saludcuidado
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi

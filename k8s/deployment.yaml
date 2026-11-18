@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saludcuidado
+  namespace: saludcuidado
+  labels:
+    app: saludcuidado
+    version: v1
+spec:
+  # UNA sola replica, a proposito.
+  #
+  # Los datos viven en SQLite, dentro del pod. Con varias replicas cada
+  # una tendria su propia base de datos: un paciente podria registrarse,
+  # que el balanceador lo mandara a otro pod en la siguiente peticion y
+  # que su cuenta "no existiera". Repartir trafico entre copias que no
+  # comparten estado no es alta disponibilidad, es perdida de datos.
+  #
+  # Escalar de verdad exigiria sacar la base a un servicio aparte
+  # (RDS o similar), que esta fuera del alcance de la entrega.
+  replicas: 1
+  strategy:
+    # Con un volumen de un solo escritor, el pod nuevo no puede montarlo
+    # mientras el viejo lo tenga. Se para el anterior y luego se arranca
+    # el siguiente.
+    type: Recreate
+  selector:
+    matchLabels:
+      app: saludcuidado
+  template:
+    metadata:
+      labels:
+        app: saludcuidado
+        version: v1
+    spec:
+      containers:
+        - name: saludcuidado
+          # Sustituir <USUARIO> por la cuenta de Docker Hub antes de aplicar.
+          image: <USUARIO>/saludcuidado:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: PUERTO
+              value: "8080"
+            - name: WEB_DIR
+              value: "/app/publico"
+            # La clinica esta en Colombia: sin esto el contenedor corre en
+            # UTC y marca citas como vencidas cinco horas antes de tiempo.
+            - name: TZ
+              value: "America/Bogota"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          # /api/salud ya existia como comprobacion de vida: responde sin
+          # tocar la sesion y consulta la base, asi que un 200 significa
+          # que el servidor Y la base de datos estan sanos.
+          livenessProbe:
+            httpGet:
+              path: /api/salud
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/salud
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: datos
+              mountPath: /app/datos
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            # El codigo y la web no cambian en ejecucion. Lo unico que se
+            # escribe es la base de datos, y va en su propio volumen.
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: datos
+          persistentVolumeClaim:
+            claimName: saludcuidado-datos
+      restartPolicy: Always
+      securityContext:
+        fsGroup: 1001

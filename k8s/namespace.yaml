@@ -1,0 +1,9 @@
+# Espacio de nombres propio: todo lo de SaludCuidado queda agrupado y se
+# puede borrar de una vez al terminar la evaluacion.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: saludcuidado
+  labels:
+    name: saludcuidado
+    environment: production
