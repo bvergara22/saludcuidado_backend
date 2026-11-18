@@ -171,8 +171,7 @@ class Db {
 
     _db.execute(
         'CREATE INDEX IF NOT EXISTS ix_citas_usuario ON citas (usuario_id);');
-    _db.execute(
-        'CREATE INDEX IF NOT EXISTS ix_citas_fecha ON citas (fecha);');
+    _db.execute('CREATE INDEX IF NOT EXISTS ix_citas_fecha ON citas (fecha);');
 
     _db.execute('''
       CREATE TABLE IF NOT EXISTS sesiones (
@@ -189,85 +188,278 @@ class Db {
   bool get _vacia =>
       (_db.select('SELECT COUNT(*) AS n FROM doctores').first['n'] as int) == 0;
 
+  /// Siembra los datos de ejemplo.
+  ///
+  /// El catálogo (médicos y servicios) se completa en cada arranque: se
+  /// insertan únicamente los que falten, por id. Así una base de datos
+  /// creada con una versión anterior recibe los nuevos sin perder las
+  /// citas ni los usuarios que ya tuviera.
+  ///
+  /// Los usuarios y las citas de ejemplo, en cambio, solo se crean la
+  /// primera vez: volver a insertarlos pisaría datos reales de la demo.
   void _sembrar() {
-    if (!_vacia) return;
-    stdout.writeln('  Sembrando datos iniciales...');
+    final primeraVez = _vacia;
+    if (primeraVez) stdout.writeln('  Sembrando datos iniciales...');
 
     // --- usuarios de ejemplo (equivalentes a DataInitializer.java)
-    crearUsuario(
-      nombre: 'Administrador',
-      email: 'admin@saludcuidado.com',
-      password: 'admin123',
-      roles: ['ROLE_ADMIN', 'ROLE_USER'],
-    );
-    crearUsuario(
-      nombre: 'Brandon Llamas',
-      email: 'brandon@saludcuidado.com',
-      password: 'demo1234',
-      roles: ['ROLE_USER'],
-    );
+    if (primeraVez) {
+      crearUsuario(
+        nombre: 'Administrador',
+        email: 'admin@saludcuidado.com',
+        password: 'admin123',
+        roles: ['ROLE_ADMIN', 'ROLE_USER'],
+      );
+      crearUsuario(
+        nombre: 'Brandon Llamas',
+        email: 'brandon@saludcuidado.com',
+        password: 'demo1234',
+        roles: ['ROLE_USER'],
+      );
+    }
 
     // --- doctores
     const doctores = [
       {
-        'id': 'doc-001', 'nombre': 'Carlos', 'apellido': 'Mendoza',
-        'titulo': 'Dr.', 'especialidad': 'Cardiología',
-        'correo': 'carlos.mendoza@saludcuidado.com', 'telefono': '555-123-4567',
+        'id': 'doc-001',
+        'nombre': 'Carlos',
+        'apellido': 'Mendoza',
+        'titulo': 'Dr.',
+        'especialidad': 'Cardiología',
+        'correo': 'carlos.mendoza@saludcuidado.com',
+        'telefono': '555-123-4567',
         'descripcion': 'Especialista en cardiología clínica e intervencionista. '
             'Enfocado en prevención cardiovascular, hipertensión y control de arritmias.',
         'clinica': 'Clínica SaludCuidado - Sede Norte',
-        'rating': 4.9, 'experiencia': 12, 'color': 0xFFE11D48, 'semilla': 17,
-        'horarios': ['08:00','08:30','09:00','10:00','10:30','14:00','14:30','15:00','16:00'],
+        'rating': 4.9,
+        'experiencia': 12,
+        'color': 0xFFE11D48,
+        'semilla': 17,
+        'horarios': [
+          '08:00',
+          '08:30',
+          '09:00',
+          '10:00',
+          '10:30',
+          '14:00',
+          '14:30',
+          '15:00',
+          '16:00'
+        ],
       },
       {
-        'id': 'doc-002', 'nombre': 'Ana', 'apellido': 'García',
-        'titulo': 'Dra.', 'especialidad': 'Pediatría',
-        'correo': 'ana.garcia@saludcuidado.com', 'telefono': '555-234-5678',
-        'descripcion': 'Pediatra con enfoque en crecimiento y desarrollo infantil, '
-            'control de niño sano y atención de enfermedades respiratorias.',
+        'id': 'doc-002',
+        'nombre': 'Ana',
+        'apellido': 'García',
+        'titulo': 'Dra.',
+        'especialidad': 'Pediatría',
+        'correo': 'ana.garcia@saludcuidado.com',
+        'telefono': '555-234-5678',
+        'descripcion':
+            'Pediatra con enfoque en crecimiento y desarrollo infantil, '
+                'control de niño sano y atención de enfermedades respiratorias.',
         'clinica': 'Clínica SaludCuidado - Sede Centro',
-        'rating': 4.8, 'experiencia': 8, 'color': 0xFF7C3AED, 'semilla': 42,
-        'horarios': ['07:00','07:30','08:00','09:00','09:30','11:00','15:00','15:30','16:30'],
+        'rating': 4.8,
+        'experiencia': 8,
+        'color': 0xFF7C3AED,
+        'semilla': 42,
+        'horarios': [
+          '07:00',
+          '07:30',
+          '08:00',
+          '09:00',
+          '09:30',
+          '11:00',
+          '15:00',
+          '15:30',
+          '16:30'
+        ],
       },
       {
-        'id': 'doc-003', 'nombre': 'Luis', 'apellido': 'López',
-        'titulo': 'Dr.', 'especialidad': 'Dermatología',
-        'correo': 'luis.lopez@saludcuidado.com', 'telefono': '555-345-6789',
+        'id': 'doc-003',
+        'nombre': 'Luis',
+        'apellido': 'López',
+        'titulo': 'Dr.',
+        'especialidad': 'Dermatología',
+        'correo': 'luis.lopez@saludcuidado.com',
+        'telefono': '555-345-6789',
         'descripcion': 'Dermatólogo clínico y estético. Tratamiento de acné, '
             'dermatitis, psoriasis y revisión preventiva de lunares.',
         'clinica': 'Clínica SaludCuidado - Sede Norte',
-        'rating': 4.7, 'experiencia': 10, 'color': 0xFF10B981, 'semilla': 8,
-        'horarios': ['09:00','09:30','10:00','11:00','11:30','13:00','17:00','17:30','18:00'],
+        'rating': 4.7,
+        'experiencia': 10,
+        'color': 0xFF10B981,
+        'semilla': 8,
+        'horarios': [
+          '09:00',
+          '09:30',
+          '10:00',
+          '11:00',
+          '11:30',
+          '13:00',
+          '17:00',
+          '17:30',
+          '18:00'
+        ],
       },
       {
-        'id': 'doc-004', 'nombre': 'María', 'apellido': 'Torres',
-        'titulo': 'Dra.', 'especialidad': 'Neurología',
-        'correo': 'maria.torres@saludcuidado.com', 'telefono': '555-456-7890',
+        'id': 'doc-004',
+        'nombre': 'María',
+        'apellido': 'Torres',
+        'titulo': 'Dra.',
+        'especialidad': 'Neurología',
+        'correo': 'maria.torres@saludcuidado.com',
+        'telefono': '555-456-7890',
         'descripcion': 'Neuróloga especializada en cefaleas, epilepsia y '
             'trastornos del sueño. Amplia experiencia en electroencefalografía.',
         'clinica': 'Clínica SaludCuidado - Sede Sur',
-        'rating': 4.9, 'experiencia': 15, 'color': 0xFFEA580C, 'semilla': 91,
-        'horarios': ['08:30','10:00','10:30','12:00','14:00','14:30','16:00','16:30'],
+        'rating': 4.9,
+        'experiencia': 15,
+        'color': 0xFFEA580C,
+        'semilla': 91,
+        'horarios': [
+          '08:30',
+          '10:00',
+          '10:30',
+          '12:00',
+          '14:00',
+          '14:30',
+          '16:00',
+          '16:30'
+        ],
       },
       {
-        'id': 'doc-005', 'nombre': 'Roberto', 'apellido': 'Sánchez',
-        'titulo': 'Dr.', 'especialidad': 'Traumatología',
-        'correo': 'roberto.sanchez@saludcuidado.com', 'telefono': '555-567-8901',
+        'id': 'doc-005',
+        'nombre': 'Roberto',
+        'apellido': 'Sánchez',
+        'titulo': 'Dr.',
+        'especialidad': 'Traumatología',
+        'correo': 'roberto.sanchez@saludcuidado.com',
+        'telefono': '555-567-8901',
         'descripcion': 'Traumatólogo y ortopedista. Manejo de lesiones '
             'deportivas, fracturas y rehabilitación osteomuscular.',
         'clinica': 'Clínica SaludCuidado - Sede Centro',
-        'rating': 4.6, 'experiencia': 9, 'color': 0xFF0369A1, 'semilla': 55,
-        'horarios': ['07:30','08:00','09:30','11:00','13:30','15:00','17:00','18:30'],
+        'rating': 4.6,
+        'experiencia': 9,
+        'color': 0xFF0369A1,
+        'semilla': 55,
+        'horarios': [
+          '07:30',
+          '08:00',
+          '09:30',
+          '11:00',
+          '13:30',
+          '15:00',
+          '17:00',
+          '18:30'
+        ],
       },
       {
-        'id': 'doc-006', 'nombre': 'Elena', 'apellido': 'Morales',
-        'titulo': 'Dra.', 'especialidad': 'Ginecología',
-        'correo': 'elena.morales@saludcuidado.com', 'telefono': '555-678-9012',
+        'id': 'doc-006',
+        'nombre': 'Elena',
+        'apellido': 'Morales',
+        'titulo': 'Dra.',
+        'especialidad': 'Ginecología',
+        'correo': 'elena.morales@saludcuidado.com',
+        'telefono': '555-678-9012',
         'descripcion': 'Ginecóloga y obstetra. Control prenatal, planificación '
             'familiar y detección temprana de cáncer de cuello uterino.',
         'clinica': 'Clínica SaludCuidado - Sede Sur',
-        'rating': 4.8, 'experiencia': 11, 'color': 0xFFDB2777, 'semilla': 73,
-        'horarios': ['08:00','08:30','10:00','10:30','12:00','14:30','15:30','16:00'],
+        'rating': 4.8,
+        'experiencia': 11,
+        'color': 0xFFDB2777,
+        'semilla': 73,
+        'horarios': [
+          '08:00',
+          '08:30',
+          '10:00',
+          '10:30',
+          '12:00',
+          '14:30',
+          '15:30',
+          '16:00'
+        ],
+      },
+      // Los tres siguientes cubren los servicios que no tenían ningún
+      // médico (Medicina General, Odontología y Laboratorio). En el
+      // proyecto Java los médicos y los servicios se inicializaban por
+      // separado y nunca llegaron a cruzarse.
+      {
+        'id': 'doc-007',
+        'nombre': 'Andrés',
+        'apellido': 'Vargas',
+        'titulo': 'Dr.',
+        'especialidad': 'Medicina General',
+        'correo': 'andres.vargas@saludcuidado.com',
+        'telefono': '555-789-0123',
+        'descripcion': 'Médico general. Consulta de primera vez, control de '
+            'enfermedades crónicas y remisión a especialistas.',
+        'clinica': 'Clínica SaludCuidado - Sede Centro',
+        'rating': 4.5,
+        'experiencia': 6,
+        'color': 0xFF1A5FBF,
+        'semilla': 112,
+        'horarios': [
+          '07:00',
+          '07:30',
+          '08:00',
+          '09:00',
+          '10:30',
+          '11:30',
+          '14:00',
+          '15:00',
+          '16:00'
+        ],
+      },
+      {
+        'id': 'doc-008',
+        'nombre': 'Paula',
+        'apellido': 'Restrepo',
+        'titulo': 'Dra.',
+        'especialidad': 'Odontología',
+        'correo': 'paula.restrepo@saludcuidado.com',
+        'telefono': '555-890-1234',
+        'descripcion': 'Odontóloga. Limpieza, endodoncia y rehabilitación '
+            'oral. Atiende también urgencias dentales.',
+        'clinica': 'Clínica SaludCuidado - Sede Norte',
+        'rating': 4.7,
+        'experiencia': 10,
+        'color': 0xFF4F46E5,
+        'semilla': 128,
+        'horarios': [
+          '08:00',
+          '09:00',
+          '10:00',
+          '11:00',
+          '14:00',
+          '15:00',
+          '16:00'
+        ],
+      },
+      {
+        'id': 'doc-009',
+        'nombre': 'Javier',
+        'apellido': 'Ortiz',
+        'titulo': 'Dr.',
+        'especialidad': 'Laboratorio',
+        'correo': 'javier.ortiz@saludcuidado.com',
+        'telefono': '555-901-2345',
+        'descripcion': 'Bacteriólogo. Toma de muestras, perfiles sanguíneos '
+            'y entrega de resultados.',
+        'clinica': 'Clínica SaludCuidado - Sede Centro',
+        'rating': 4.4,
+        'experiencia': 7,
+        'color': 0xFFEA580C,
+        'semilla': 144,
+        'horarios': [
+          '06:30',
+          '07:00',
+          '07:30',
+          '08:00',
+          '08:30',
+          '09:00',
+          '09:30',
+          '10:00'
+        ],
       },
     ];
 
@@ -277,14 +469,32 @@ class Db {
                             color, avatar_semilla, activo)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)
     ''');
-    final insHora = _db.prepare(
-        'INSERT INTO doctor_horarios (doctor_id, hora) VALUES (?,?)');
+    final insHora = _db
+        .prepare('INSERT INTO doctor_horarios (doctor_id, hora) VALUES (?,?)');
+
+    // Qué hay ya, para insertar solo lo que falte.
+    final yaEstan = {
+      for (final r in _db.select('SELECT id FROM doctores')) r['id'] as String
+    };
+    var doctoresNuevos = 0;
 
     for (final d in doctores) {
+      if (yaEstan.contains(d['id'])) continue;
+      doctoresNuevos++;
       insDoc.execute([
-        d['id'], d['nombre'], d['apellido'], d['titulo'], d['especialidad'],
-        d['correo'], d['telefono'], d['descripcion'], d['clinica'],
-        d['rating'], d['experiencia'], d['color'], d['semilla'],
+        d['id'],
+        d['nombre'],
+        d['apellido'],
+        d['titulo'],
+        d['especialidad'],
+        d['correo'],
+        d['telefono'],
+        d['descripcion'],
+        d['clinica'],
+        d['rating'],
+        d['experiencia'],
+        d['color'],
+        d['semilla'],
       ]);
       for (final h in d['horarios'] as List) {
         insHora.execute([d['id'], h]);
@@ -295,26 +505,114 @@ class Db {
 
     // --- servicios (duraciones tomadas de DataInitializer.java)
     const servicios = [
-      ['srv-001','Medicina General','Evaluación y seguimiento en medicina general.','general',30,'stethoscope',0xFF1A5FBF],
-      ['srv-002','Odontología','Servicios dentales: limpieza, extracciones y tratamientos de conducto.','dental',60,'tooth',0xFF4F46E5],
-      ['srv-003','Pediatría','Atención médica especializada para niños y adolescentes.','infantil',45,'child',0xFF7C3AED],
-      ['srv-004','Cardiología','Control cardiovascular, hipertensión y arritmias.','especialidad',40,'heart',0xFFE11D48],
-      ['srv-005','Dermatología','Diagnóstico y tratamiento de afecciones de la piel.','especialidad',30,'skin',0xFF10B981],
-      ['srv-006','Laboratorio','Toma de muestras y exámenes de laboratorio clínico.','apoyo',20,'lab',0xFFEA580C],
+      [
+        'srv-001',
+        'Medicina General',
+        'Evaluación y seguimiento en medicina general.',
+        'general',
+        30,
+        'stethoscope',
+        0xFF1A5FBF
+      ],
+      [
+        'srv-002',
+        'Odontología',
+        'Servicios dentales: limpieza, extracciones y tratamientos de conducto.',
+        'dental',
+        60,
+        'tooth',
+        0xFF4F46E5
+      ],
+      [
+        'srv-003',
+        'Pediatría',
+        'Atención médica especializada para niños y adolescentes.',
+        'infantil',
+        45,
+        'child',
+        0xFF7C3AED
+      ],
+      [
+        'srv-004',
+        'Cardiología',
+        'Control cardiovascular, hipertensión y arritmias.',
+        'especialidad',
+        40,
+        'heart',
+        0xFFE11D48
+      ],
+      [
+        'srv-005',
+        'Dermatología',
+        'Diagnóstico y tratamiento de afecciones de la piel.',
+        'especialidad',
+        30,
+        'skin',
+        0xFF10B981
+      ],
+      [
+        'srv-006',
+        'Laboratorio',
+        'Toma de muestras y exámenes de laboratorio clínico.',
+        'apoyo',
+        20,
+        'lab',
+        0xFFEA580C
+      ],
+      // Y estos tres, las especialidades que no tenían servicio: así cada
+      // servicio del catálogo tiene quien lo atienda y al revés.
+      [
+        'srv-007',
+        'Neurología',
+        'Cefaleas, epilepsia y trastornos del sueño.',
+        'especialidad',
+        45,
+        'medical',
+        0xFFEA580C
+      ],
+      [
+        'srv-008',
+        'Traumatología',
+        'Lesiones deportivas, fracturas y rehabilitación osteomuscular.',
+        'especialidad',
+        40,
+        'medical',
+        0xFF0369A1
+      ],
+      [
+        'srv-009',
+        'Ginecología',
+        'Control prenatal, planificación familiar y citología.',
+        'especialidad',
+        40,
+        'medical',
+        0xFFDB2777
+      ],
     ];
     final insSrv = _db.prepare('''
       INSERT INTO servicios (id, nombre, descripcion, categoria,
                              duracion_minutos, icono, color, activo)
       VALUES (?,?,?,?,?,?,?,1)
     ''');
+    final srvYaEstan = {
+      for (final r in _db.select('SELECT id FROM servicios')) r['id'] as String
+    };
+    var serviciosNuevos = 0;
     for (final s in servicios) {
+      if (srvYaEstan.contains(s[0])) continue;
+      serviciosNuevos++;
       insSrv.execute(s);
     }
     insSrv.dispose();
 
-    _sembrarCitas();
-    stdout.writeln('  Semilla lista: ${doctores.length} doctores, '
-        '${servicios.length} servicios, 2 usuarios.');
+    if (primeraVez) {
+      _sembrarCitas();
+      stdout.writeln('  Semilla lista: ${doctores.length} doctores, '
+          '${servicios.length} servicios, 2 usuarios.');
+    } else if (doctoresNuevos > 0 || serviciosNuevos > 0) {
+      stdout.writeln('  Catálogo completado: +$doctoresNuevos doctores, '
+          '+$serviciosNuevos servicios.');
+    }
   }
 
   /// Citas de ejemplo para el usuario de demostracion.
@@ -349,7 +647,14 @@ class Db {
     for (var i = 0; i < ejemplos.length; i++) {
       final e = ejemplos[i];
       ins.execute([
-        'cita-semilla-${i + 1}', uid, e[0], e[1], e[2], e[3], e[4], ahora,
+        'cita-semilla-${i + 1}',
+        uid,
+        e[0],
+        e[1],
+        e[2],
+        e[3],
+        e[4],
+        ahora,
       ]);
     }
     ins.dispose();
@@ -417,7 +722,8 @@ class Db {
 
   // -------------------------------------------------------------- sesiones
 
-  String crearSesion(int usuarioId, {Duration duracion = const Duration(days: 30)}) {
+  String crearSesion(int usuarioId,
+      {Duration duracion = const Duration(days: 30)}) {
     final token = Seguridad.generarToken();
     final ahora = DateTime.now();
     _db.execute(
